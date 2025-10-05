@@ -60,6 +60,12 @@ The bot runs as a console application with an integrated Express server and uses
 - Installed Express and Canvas packages with required system dependencies
 - Added uptime monitoring server on port 5000
 - Implemented wrapper functions for all new command modules
+- **2025-10-05 (Bug Fixes):**
+  - Fixed .brat command - added createBratSticker wrapper function
+  - Fixed .qc command - removed dependency on missing default_pfp.png, now generates default avatars with canvas
+  - Fixed .iqc command - added default avatar generation for users without profile pictures
+  - Updated .ttdl command - provides alternative download websites (TikTok blocks automated downloads)
+  - Updated .igdl command - enhanced error handling with alternative solutions (Instagram requires authentication)
 
 ## Important Notes
 - **Security**: The original GitHub import included WhatsApp session files (.wwebjs_auth) that are now in git history. The .gitignore has been updated to prevent future session data from being tracked. When you first run the bot, you'll need to scan the QR code to create your own session.

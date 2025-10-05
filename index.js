@@ -50,6 +50,8 @@ client.on('ready', () => {
 const confessModule = require('./confess');
 const qcModule = require('./qc'); // .qc & .iqc
 const bratModule = require('./brat'); // sticker text .brat
+const ttdlModule = require('./ttdl'); // TikTok downloader
+const igdlModule = require('./igdl'); // Instagram downloader
 confessModule(client);
 
 // ===== MESSAGE HANDLER =====
@@ -107,6 +109,16 @@ client.on('message', async message => {
         await qcModule.handleIQC(message, client);
     }
 
+    // ===== TIKTOK DOWNLOADER =====
+    if(text.toLowerCase().startsWith('.ttdl')){
+        await ttdlModule.handleTikTokDownload(message, client);
+    }
+
+    // ===== INSTAGRAM DOWNLOADER =====
+    if(text.toLowerCase().startsWith('.igdl')){
+        await igdlModule.handleInstagramDownload(message, client);
+    }
+
     // ===== MENU =====
     if(text.toLowerCase() === '.menu'){
         const menuText = `*🤖 BOT MENU*
@@ -119,6 +131,11 @@ client.on('message', async message => {
 │ • .confess : Kirim pesan confess
 │ • .qc : Buat foto chat (single)
 │ • .iqc : Buat foto chat (multi)
+╰─❏
+
+╭─❏ *📥 DOWNLOADER*
+│ • .ttdl <link> : Download video TikTok
+│ • .igdl <link> : Download video/story Instagram
 ╰─❏
 
 ╭─❏ *👥 GRUP (Admin Only)*

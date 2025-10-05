@@ -1,42 +1,75 @@
 const { MessageMedia } = require('whatsapp-web.js');
 const fetch = require('node-fetch');
 
-async function downloadFromAPI1(url) {
-    const apiUrl = 'https://api.saveig.app/api/v1/media-info';
-    const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        },
-        body: JSON.stringify({ url })
-    });
+async function downloadFromTikWMStyle(url) {
+    const apiUrl = `https://www.tikwm.com/api/hybrid/instagram?url=${encodeURIComponent(url)}&hd=1`;
     
-    if (!response.ok) throw new Error('API1 failed');
-    const data = await response.json();
-    if (!data.data || !data.data.media) throw new Error('No media found');
-    return data.data.media;
-}
-
-async function downloadFromAPI2(url) {
-    const apiUrl = `https://api.downloadgram.org/media?url=${encodeURIComponent(url)}`;
     const response = await fetch(apiUrl, {
         headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Referer': 'https://www.tikwm.com/'
         }
     });
     
-    if (!response.ok) throw new Error('API2 failed');
+    if (!response.ok) throw new Error('TikWM API failed');
     const data = await response.json();
-    if (!data.media || data.media.length === 0) throw new Error('No media found');
-    return data.media;
+    
+    if (data.code !== 0 || !data.data) throw new Error('No media found');
+    
+    const result = [];
+    if (data.data.images && data.data.images.length > 0) {
+        result.push(...data.data.images);
+    } else if (data.data.video) {
+        result.push(data.data.video);
+    }
+    
+    return result;
 }
 
-async function downloadFromAPI3(url) {
-    const shortcode = url.match(/\/(p|reel)\/([^\/\?]+)/)?.[2];
+async function downloadFromSnapInsta(url) {
+    const apiUrl = 'https://snapinsta.io/api/ajaxSearch';
+    
+    const formData = new URLSearchParams();
+    formData.append('q', url);
+    formData.append('t', 'media');
+    
+    const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Origin': 'https://snapinsta.io',
+            'Referer': 'https://snapinsta.io/'
+        },
+        body: formData
+    });
+    
+    if (!response.ok) throw new Error('SnapInsta API failed');
+    const data = await response.json();
+    
+    if (!data.data || data.status !== 'ok') throw new Error('No media found');
+    
+    const html = data.data;
+    const urlMatches = html.match(/href="([^"]+download[^"]+)"/gi);
+    
+    if (!urlMatches || urlMatches.length === 0) throw new Error('No download URLs found');
+    
+    const downloadUrls = [];
+    for (const match of urlMatches) {
+        const urlMatch = match.match(/href="([^"]+)"/);
+        if (urlMatch && urlMatch[1]) {
+            downloadUrls.push(urlMatch[1]);
+        }
+    }
+    
+    return downloadUrls;
+}
+
+async function downloadFromInstaIO(url) {
+    const shortcode = url.match(/\/(p|reel|tv)\/([^\/\?]+)/)?.[2];
     if (!shortcode) throw new Error('Invalid URL format');
     
-    const apiUrl = `https://igram.io/api/ig/post/${shortcode}`;
+    const apiUrl = `https://v3.instadownloader.io/api/instagram/${shortcode}`;
     const response = await fetch(apiUrl, {
         headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -44,11 +77,11 @@ async function downloadFromAPI3(url) {
         }
     });
     
-    if (!response.ok) throw new Error('API3 failed');
+    if (!response.ok) throw new Error('InstaIO API failed');
     const data = await response.json();
-    if (!data.result || !data.result.download) throw new Error('No media found');
     
-    return Array.isArray(data.result.download) ? data.result.download : [data.result.download];
+    if (!data.media || data.media.length === 0) throw new Error('No media found');
+    return data.media.map(m => m.url || m.download_url);
 }
 
 async function handleInstagramDownload(message, client) {
@@ -71,9 +104,9 @@ async function handleInstagramDownload(message, client) {
         let apiUsed = null;
         
         const apis = [
-            { name: 'API1', func: downloadFromAPI1 },
-            { name: 'API2', func: downloadFromAPI2 },
-            { name: 'API3', func: downloadFromAPI3 }
+            { name: 'TikWM', func: downloadFromTikWMStyle },
+            { name: 'SnapInsta', func: downloadFromSnapInsta },
+            { name: 'InstaIO', func: downloadFromInstaIO }
         ];
         
         for (const api of apis) {

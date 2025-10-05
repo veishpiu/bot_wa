@@ -21,17 +21,35 @@ async function handleInstagramDownload(message, client) {
         const links = await instagramGetUrl(url);
         
         if (!links || !links.url_list || links.url_list.length === 0) {
-            return message.reply('❌ Tidak dapat mengunduh. Pastikan link benar dan konten tidak private.');
+            console.error('Instagram API response:', links);
+            return message.reply('❌ Tidak dapat mengunduh. Instagram memblokir download otomatis.\n\n💡 *Solusi:* Gunakan situs web seperti:\n• https://snapinsta.app\n• https://igram.io\n• https://saveig.app\n\nCopy link Instagram Anda ke salah satu situs di atas untuk download.');
         }
 
         for (let i = 0; i < links.url_list.length; i++) {
             const downloadUrl = links.url_list[i];
             
-            const response = await fetch(downloadUrl);
-            const buffer = await response.buffer();
+            const response = await fetch(downloadUrl, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }
+            });
             
-            const mimeType = downloadUrl.includes('.mp4') ? 'video/mp4' : 'image/jpeg';
-            const extension = mimeType.includes('video') ? 'mp4' : 'jpg';
+            if (!response.ok) {
+                console.error('Failed to download media:', response.status);
+                continue;
+            }
+
+            const buffer = await response.buffer();
+            const contentType = response.headers.get('content-type') || '';
+            
+            let mimeType, extension;
+            if (contentType.includes('video') || downloadUrl.includes('.mp4')) {
+                mimeType = 'video/mp4';
+                extension = 'mp4';
+            } else {
+                mimeType = 'image/jpeg';
+                extension = 'jpg';
+            }
             
             const media = new MessageMedia(
                 mimeType,
@@ -50,8 +68,9 @@ async function handleInstagramDownload(message, client) {
         }
         
     } catch (error) {
-        console.error('Error downloading Instagram:', error);
-        message.reply('❌ Gagal mengunduh dari Instagram. Pastikan link benar dan konten tidak private.');
+        console.error('Error downloading Instagram:', error.message || error);
+        console.error('Full error:', error);
+        message.reply('❌ Gagal mengunduh dari Instagram. Instagram memblokir download otomatis.\n\n💡 *Solusi:* Gunakan situs web seperti:\n• https://snapinsta.app\n• https://igram.io\n• https://saveig.app\n\nCopy link Instagram Anda ke salah satu situs di atas untuk download.');
     }
 }
 

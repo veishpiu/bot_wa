@@ -1,4 +1,3 @@
-const { fetchVideo } = require('@prevter/tiktok-scraper');
 const { MessageMedia } = require('whatsapp-web.js');
 
 async function handleTikTokDownload(message, client) {
@@ -14,27 +13,19 @@ async function handleTikTokDownload(message, client) {
         return message.reply('❌ Link tidak valid! Harap kirim link TikTok yang benar.');
     }
 
-    try {
-        await message.reply('⏳ Mengunduh video TikTok...');
-        
-        const video = await fetchVideo(url);
-        
-        const caption = `✅ *TikTok Download*\n\n` +
-                       `👤 *Author:* ${video.author || 'Unknown'}\n` +
-                       `📝 *Deskripsi:* ${video.description || 'Tidak ada deskripsi'}\n` +
-                       `❤️ *Likes:* ${video.likes || 0}\n` +
-                       `💬 *Comments:* ${video.comments || 0}\n` +
-                       `🎵 *Music:* ${video.music?.name || 'Unknown'} - ${video.music?.author || ''}`;
-        
-        const buffer = await video.download();
-        const media = new MessageMedia('video/mp4', buffer.toString('base64'), 'tiktok.mp4');
-        
-        await client.sendMessage(message.from, media, { caption });
-        
-    } catch (error) {
-        console.error('Error downloading TikTok:', error);
-        message.reply('❌ Gagal mengunduh video TikTok. Pastikan link benar dan video tidak private.');
-    }
+    return message.reply(
+        '⚠️ *Fitur Download TikTok Sementara Tidak Tersedia*\n\n' +
+        'TikTok sering memblokir download otomatis. Gunakan situs web alternatif:\n\n' +
+        '📥 *Rekomendasi:*\n' +
+        '• https://snaptik.app\n' +
+        '• https://tikmate.app\n' +
+        '• https://ssstik.io\n' +
+        '• https://tikwm.com\n\n' +
+        '💡 *Cara pakai:*\n' +
+        '1. Copy link TikTok\n' +
+        '2. Paste di salah satu situs di atas\n' +
+        '3. Download tanpa watermark!'
+    );
 }
 
 module.exports = { handleTikTokDownload };

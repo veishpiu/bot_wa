@@ -5,7 +5,11 @@ const fs = require('fs');
 const path = require('path');
 
 const client = new Client({
-    authStrategy: new LocalAuth()
+    authStrategy: new LocalAuth(),
+    puppeteer: {
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || require('child_process').execSync('which chromium').toString().trim(),
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    }
 });
 
 let botStartTime = null; // simpan waktu bot aktif

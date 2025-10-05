@@ -42,6 +42,12 @@ The bot runs as a console application and uses WhatsApp Web.js to interact with 
 - Added comprehensive .gitignore for WhatsApp auth, cache, and media files
 - Created .env file for environment variables
 - Configured console workflow for bot operation
+- Configured Puppeteer to use system Chromium in Replit environment
+- Updated index.js to dynamically locate Chromium binary path
+
+## Important Notes
+- **Security**: The original GitHub import included WhatsApp session files (.wwebjs_auth) that are now in git history. The .gitignore has been updated to prevent future session data from being tracked. When you first run the bot, you'll need to scan the QR code to create your own session.
+- **Chromium Setup**: This bot requires Chromium to be installed as a system dependency. The configuration automatically detects the Chromium binary path.
 
 ## How to Use
 1. Run the bot using the configured workflow

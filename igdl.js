@@ -1,4 +1,3 @@
-const instagramGetUrl = require('instagram-url-direct');
 const { MessageMedia } = require('whatsapp-web.js');
 const fetch = require('node-fetch');
 
@@ -18,59 +17,115 @@ async function handleInstagramDownload(message, client) {
     try {
         await message.reply('⏳ Mengunduh dari Instagram...');
         
-        const links = await instagramGetUrl(url);
+        const apiUrl = 'https://v3.saveig.app/api/ajaxSearch';
         
-        if (!links || !links.url_list || links.url_list.length === 0) {
-            console.error('Instagram API response:', links);
-            return message.reply('❌ Tidak dapat mengunduh. Instagram memblokir download otomatis.\n\n💡 *Solusi:* Gunakan situs web seperti:\n• https://snapinsta.app\n• https://igram.io\n• https://saveig.app\n\nCopy link Instagram Anda ke salah satu situs di atas untuk download.');
+        const formData = new URLSearchParams();
+        formData.append('q', url);
+        formData.append('t', 'media');
+        formData.append('lang', 'en');
+        
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': '*/*',
+                'Origin': 'https://saveig.app',
+                'Referer': 'https://saveig.app/en'
+            },
+            body: formData
+        });
+        
+        if (!response.ok) {
+            throw new Error(`API Error: ${response.status}`);
         }
-
-        for (let i = 0; i < links.url_list.length; i++) {
-            const downloadUrl = links.url_list[i];
+        
+        const data = await response.json();
+        
+        if (!data.data || data.status !== 'ok') {
+            throw new Error('Video/foto tidak ditemukan');
+        }
+        
+        const html = data.data;
+        
+        const urlMatches = html.match(/href="([^"]+)"[^>]*download/gi);
+        
+        if (!urlMatches || urlMatches.length === 0) {
+            throw new Error('Tidak dapat menemukan URL download');
+        }
+        
+        const downloadUrls = [];
+        for (const match of urlMatches) {
+            const urlMatch = match.match(/href="([^"]+)"/);
+            if (urlMatch && urlMatch[1]) {
+                downloadUrls.push(urlMatch[1]);
+            }
+        }
+        
+        if (downloadUrls.length === 0) {
+            throw new Error('Tidak dapat menemukan URL download');
+        }
+        
+        for (let i = 0; i < Math.min(downloadUrls.length, 5); i++) {
+            const downloadUrl = downloadUrls[i];
             
-            const response = await fetch(downloadUrl, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            try {
+                const mediaResponse = await fetch(downloadUrl, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    }
+                });
+                
+                if (!mediaResponse.ok) {
+                    console.error('Failed to download media:', mediaResponse.status);
+                    continue;
                 }
-            });
-            
-            if (!response.ok) {
-                console.error('Failed to download media:', response.status);
+                
+                const buffer = await mediaResponse.buffer();
+                const contentType = mediaResponse.headers.get('content-type') || '';
+                
+                let mimeType, extension;
+                if (contentType.includes('video') || downloadUrl.includes('.mp4')) {
+                    mimeType = 'video/mp4';
+                    extension = 'mp4';
+                } else {
+                    mimeType = 'image/jpeg';
+                    extension = 'jpg';
+                }
+                
+                const media = new MessageMedia(
+                    mimeType,
+                    buffer.toString('base64'),
+                    `instagram.${extension}`
+                );
+                
+                const caption = i === 0 ? '✅ *Instagram Download*\n\n' + 
+                               (downloadUrls.length > 1 ? `📦 Total: ${Math.min(downloadUrls.length, 5)} file` : '') : '';
+                
+                await client.sendMessage(message.from, media, caption ? { caption } : {});
+                
+                if (downloadUrls.length > 1 && i < Math.min(downloadUrls.length, 5) - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+            } catch (err) {
+                console.error('Error downloading individual media:', err);
                 continue;
-            }
-
-            const buffer = await response.buffer();
-            const contentType = response.headers.get('content-type') || '';
-            
-            let mimeType, extension;
-            if (contentType.includes('video') || downloadUrl.includes('.mp4')) {
-                mimeType = 'video/mp4';
-                extension = 'mp4';
-            } else {
-                mimeType = 'image/jpeg';
-                extension = 'jpg';
-            }
-            
-            const media = new MessageMedia(
-                mimeType,
-                buffer.toString('base64'),
-                `instagram.${extension}`
-            );
-            
-            const caption = i === 0 ? '✅ *Instagram Download*\n\n' + 
-                           (links.url_list.length > 1 ? `📦 Total: ${links.url_list.length} file` : '') : '';
-            
-            await client.sendMessage(message.from, media, caption ? { caption } : {});
-            
-            if (links.url_list.length > 1 && i < links.url_list.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, 2000));
             }
         }
         
     } catch (error) {
         console.error('Error downloading Instagram:', error.message || error);
-        console.error('Full error:', error);
-        message.reply('❌ Gagal mengunduh dari Instagram. Instagram memblokir download otomatis.\n\n💡 *Solusi:* Gunakan situs web seperti:\n• https://snapinsta.app\n• https://igram.io\n• https://saveig.app\n\nCopy link Instagram Anda ke salah satu situs di atas untuk download.');
+        message.reply(
+            '❌ *Gagal mengunduh dari Instagram*\n\n' +
+            'Kemungkinan penyebab:\n' +
+            '• Post bersifat private\n' +
+            '• Link tidak valid\n' +
+            '• API sedang down\n\n' +
+            '💡 *Alternatif:* Gunakan situs web:\n' +
+            '• https://snapinsta.app\n' +
+            '• https://igram.io\n' +
+            '• https://saveig.app'
+        );
     }
 }
 

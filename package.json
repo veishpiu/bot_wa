@@ -8,10 +8,10 @@
   },
   "dependencies": {
     "@prevter/tiktok-scraper": "^1.0.1",
-    "@sasmeee/igdl": "^0.0.1-security",
     "canvas": "^2.11.2",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "instagram-url-direct": "^2.0.7",
     "node-fetch": "^2.7.0",
     "openai": "^6.1.0",
     "puppeteer": "^24.23.0",

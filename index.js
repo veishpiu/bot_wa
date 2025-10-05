@@ -3,16 +3,37 @@ const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
+// ===== SERVER UNTUK UPTIME =====
+require("./server");
+
+// ===== SETUP CHROMIUM =====
+let chromiumPath;
+try {
+    chromiumPath = execSync('which chromium').toString().trim();
+} catch (err) {
+    chromiumPath = undefined;
+}
+
+// ===== INISIALISASI CLIENT =====
 const client = new Client({
     authStrategy: new LocalAuth(),
-    puppeteer: {
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || require('child_process').execSync('which chromium').toString().trim(),
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    }
+    puppeteer: chromiumPath ? {
+        executablePath: chromiumPath,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--disable-gpu'
+        ]
+    } : undefined
 });
 
-let botStartTime = null; // simpan waktu bot aktif
+let botStartTime = null;
 
 // ===== QR CODE =====
 client.on('qr', qr => {
@@ -27,7 +48,9 @@ client.on('ready', () => {
 
 // ===== IMPORT MODULES =====
 const confessModule = require('./confess');
-confessModule(client); // initialize module confess
+const qcModule = require('./qc'); // .qc & .iqc
+const bratModule = require('./brat'); // sticker text .brat
+confessModule(client);
 
 // ===== MESSAGE HANDLER =====
 client.on('message', async message => {
@@ -38,51 +61,64 @@ client.on('message', async message => {
     console.log('Pesan masuk:', text);
 
     // ===== AUTO REPLY =====
-    if(text.toLowerCase() === '.hai') message.reply('Halo! Aku bot, kamu Bisa ubah fotomu jadi stiker dan bantu kirim pesan confess ke Siapapun!');
-    if(text.toLowerCase() === '.ping') {
-        if(botStartTime) {
-            const uptime = Math.floor((new Date() - botStartTime) / 1000);
-            const hours = Math.floor(uptime / 3600);
-            const minutes = Math.floor((uptime % 3600) / 60);
-            const seconds = uptime % 60;
-            message.reply(`Bot aktif sejak: ${botStartTime.toLocaleString()}\nUptime: ${hours}h ${minutes}m ${seconds}s`);
-        } else {
-            message.reply('Bot baru mulai, status uptime belum tersedia');
-        }
+    if(text.toLowerCase() === '.hai') 
+        return message.reply('Halo! Aku bot, bisa ubah fotomu jadi stiker & bantu kirim pesan confess!');
+
+    if(text.toLowerCase() === '.ping'){
+        if(botStartTime){
+            const uptime = Math.floor((new Date() - botStartTime)/1000);
+            const hours = Math.floor(uptime/3600);
+            const minutes = Math.floor((uptime%3600)/60);
+            const seconds = uptime%60;
+            return message.reply(`Bot aktif sejak: ${botStartTime.toLocaleString()}\nUptime: ${hours}h ${minutes}m ${seconds}s`);
+        } else return message.reply('Bot baru mulai, status uptime belum tersedia');
     }
 
-   // ===== STICKER =====
-if(text.toLowerCase() === '.sticker') {
-    if(message.hasMedia || message.hasQuotedMsg) {
-        let mediaMessage = message;
-        if(message.hasQuotedMsg) mediaMessage = await message.getQuotedMessage();
-        try {
-            await message.reply('Prosess...');
-            const media = await mediaMessage.downloadMedia();
-            if(media) {
-                const extension = media.mimetype.split('/')[1];
-                const mediaPath = path.join(__dirname, 'media', `foto_${Date.now()}.${extension}`);
-                fs.writeFileSync(mediaPath, media.data, 'base64');
-                await client.sendMessage(message.from, media, { sendMediaAsSticker: true });
-            }
-        } catch(err) {
-            console.error('Gagal bikin sticker:', err);
-            message.reply('Gagal bikin sticker');
-        }
-    } else {
-        message.reply('Harap kirim foto terlebih dahulu atau reply ke media untuk membuat sticker.');
+    // ===== STICKER DARI MEDIA =====
+    if(text.toLowerCase() === '.sticker'){
+        if(message.hasMedia || message.hasQuotedMsg){
+            let mediaMessage = message;
+            if(message.hasQuotedMsg) mediaMessage = await message.getQuotedMessage();
+            try{
+                await message.reply('Prosess...');
+                const media = await mediaMessage.downloadMedia();
+                if(media){
+                    const extension = media.mimetype.split('/')[1];
+                    const mediaPath = path.join(__dirname,'media',`foto_${Date.now()}.${extension}`);
+                    fs.writeFileSync(mediaPath, media.data,'base64');
+                    await client.sendMessage(message.from, media, {sendMediaAsSticker:true});
+                }
+            } catch(err){ console.error(err); return message.reply('Gagal bikin sticker'); }
+        } else return message.reply('Kirim foto atau reply ke media untuk membuat sticker.');
     }
-}
-    // ===== MENU COMMAND =====
 
-  if(text.toLowerCase() === '.menu') {
-    const menuText = `*🤖 BOT MENU*
+    // ===== STICKER TEXT .BRAT =====
+    if(text.toLowerCase().startsWith('.brat')){
+        await bratModule.createBratSticker(message, client);
+    }
+
+    // ===== .QC SINGLE =====
+    if(text.toLowerCase().startsWith('.qc')){
+        await qcModule.handleQC(message, client);
+    }
+
+    // ===== .IQC MULTI =====
+    if(text.toLowerCase().startsWith('.iqc')){
+        await qcModule.handleIQC(message, client);
+    }
+
+    // ===== MENU =====
+    if(text.toLowerCase() === '.menu'){
+        const menuText = `*🤖 BOT MENU*
 
 ╭─❏ *📌 UMUM*
 │ • .hai : Sapaan bot
 │ • .ping : Cek uptime bot
 │ • .sticker : Ubah gambar/video jadi stiker
-│ • .confess : Kirim pesan confess ke target
+│ • .brat : Sticker teks hitam
+│ • .confess : Kirim pesan confess
+│ • .qc : Buat foto chat (single)
+│ • .iqc : Buat foto chat (multi)
 ╰─❏
 
 ╭─❏ *👥 GRUP (Admin Only)*
@@ -91,38 +127,36 @@ if(text.toLowerCase() === '.sticker') {
 │ • .open : Buka grup
 ╰─❏
 
-> Made with ❤️ - By Vei
-`;
-    message.reply(menuText);
-}
+> Made with ❤️ - By Vei`;
+        return message.reply(menuText);
+    }
 
     // ===== ADMIN COMMANDS =====
-    if(fromGroup) {
+    if(fromGroup){
         const sender = await message.getContact();
-        const isAdmin = chat.participants
-            .filter(p => p.isAdmin)
-            .some(p => p.id._serialized === sender.id._serialized);
+        const isAdmin = chat.participants.filter(p=>p.isAdmin)
+            .some(p=>p.id._serialized === sender.id._serialized);
 
-        if(text.toLowerCase().startsWith('.h ') && isAdmin) {
-            try {
+        if(text.toLowerCase().startsWith('.h ') && isAdmin){
+            try{
                 const mentions = [];
-                for (let participant of chat.participants) {
-                    if(participant.id._serialized !== client.info.wid._serialized) {
+                for(let participant of chat.participants){
+                    if(participant.id._serialized !== client.info.wid._serialized){
                         mentions.push(await client.getContactById(participant.id._serialized));
                     }
                 }
                 const msgText = text.slice(3).trim() || 'Mention all';
-                if(mentions.length > 0) await chat.sendMessage(msgText, { mentions });
-            } catch(err) { console.error('Gagal mention all:', err); }
+                if(mentions.length>0) await chat.sendMessage(msgText,{mentions});
+            }catch(err){console.error(err);}
         }
 
-        if(text.toLowerCase() === '.close' && isAdmin) {
+        if(text.toLowerCase() === '.close' && isAdmin){
             await chat.setMessagesAdminsOnly(true);
-            await chat.sendMessage('Grup tutup wok');
+            await chat.sendMessage('Grup ditutup!');
         }
-        if(text.toLowerCase() === '.open' && isAdmin) {
+        if(text.toLowerCase() === '.open' && isAdmin){
             await chat.setMessagesAdminsOnly(false);
-            await chat.sendMessage('GEELOK Grup dibuka!');
+            await chat.sendMessage('Grup dibuka!');
         }
     }
 });

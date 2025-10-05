@@ -11,14 +11,23 @@ module.exports = function (client) {
       return message.reply("❌ Proses confess dibatalkan.");
     }
 
-    // ===== Mulai flow =====
+    // ===== Command .confess =====
     if (text.toLowerCase() === ".confess") {
+      // Cek chat pribadi
+      if (chatId.includes("@g.us")) {
+        return message.reply(
+          "⚠️ Command .confess hanya bisa digunakan di chat pribadi!"
+        );
+      }
+
+      // Mulai flow
       userState[chatId] = { step: 1 };
       return message.reply(
         "Silakan tulis *Nomor tujuan* (contoh: +628123456789) atau ketik *Batal* untuk membatalkan:"
       );
     }
 
+    // ===== Lanjut flow jika userState ada =====
     if (userState[chatId]) {
       const state = userState[chatId];
 

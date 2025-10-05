@@ -4,7 +4,7 @@ expertMode = true
 
 [nix]
 channel = "stable-25_05"
-packages = ["chromium"]
+packages = ["chromium", "libuuid", "cairo", "pango", "giflib", "libjpeg"]
 
 [workflows]
 runButton = "Project"
@@ -22,9 +22,13 @@ args = "WhatsApp Bot"
 name = "WhatsApp Bot"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "console"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node index.js"
 
-[workflows.workflow.metadata]
-outputType = "console"
+[[ports]]
+localPort = 5000
+externalPort = 80

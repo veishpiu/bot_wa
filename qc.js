@@ -1,153 +1,88 @@
-const { createCanvas } = require('canvas');
-const { MessageMedia } = require('whatsapp-web.js');
+const { MessageMedia } = require("whatsapp-web.js");
+const { createCanvas, loadImage } = require("canvas");
+const path = require("path");
+const fs = require("fs");
 
-// Fungsi wrap text
-function wrapText(ctx, text, maxWidth) {
-    const words = text.split(' ');
-    let line = '';
-    const lines = [];
-    for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + ' ';
-        const metrics = ctx.measureText(testLine);
-        if(metrics.width > maxWidth && n > 0){
-            lines.push(line.trim());
-            line = words[n] + ' ';
+module.exports.handleQC = async (message, client) => {
+    try {
+        const text = message.body.replace(/^\.qc\s*/i, "").trim();
+        if (!text) return message.reply("⚠️ Gunakan format: *.qc <pesan>*");
+
+        const contact = await message.getContact();
+        const pfp = await contact.getProfilePicUrl();
+
+        const username = contact.pushname || contact.number || "Anonim";
+        const canvas = createCanvas(800, 300);
+        const ctx = canvas.getContext("2d");
+
+        // Latar belakang dark mode
+        ctx.fillStyle = "#0b141a";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Avatar
+        let avatar;
+        if (pfp) {
+            const buffer = await (await fetch(pfp)).arrayBuffer();
+            const img = await loadImage(Buffer.from(buffer));
+            avatar = img;
         } else {
-            line = testLine;
+            avatar = await loadImage(path.join(__dirname, "default_pfp.png"));
         }
-    }
-    if(line) lines.push(line.trim());
-    return lines;
-}
 
-// Fungsi generate gambar chat
-async function generateChatImage(messages, title='Chat Preview') {
-    const width = 900;
-    const padding = 30;
-    const bubbleMaxWidth = width - 220;
-    const lineHeight = 26;
+        const bubbleX = 150;
+        const bubbleY = 90;
+        const bubbleWidth = 580;
+        const bubbleHeight = 120;
 
-    // Hitung tinggi canvas
-    let height = padding*2 + 80;
-    const canvasTemp = createCanvas(width, 1000);
-    const ctxTemp = canvasTemp.getContext('2d');
-    ctxTemp.font = '18px Arial';
-    for(const m of messages){
-        const lines = wrapText(ctxTemp, m.text, bubbleMaxWidth);
-        height += Math.max(60, lines.length * lineHeight + 20);
-    }
-
-    const canvas = createCanvas(width, height);
-    const ctx = canvas.getContext('2d');
-
-    // Background
-    ctx.fillStyle = '#EDEFF3';
-    ctx.fillRect(0,0,width,height);
-
-    // Header
-    ctx.fillStyle = '#0b84ff';
-    ctx.fillRect(0,0,width,70);
-    ctx.font = '24px Arial';
-    ctx.fillStyle = '#fff';
-    ctx.fillText(title, 24,44);
-
-    let y = 90;
-    for(const m of messages){
-        const isMe = m.fromMe;
-        const avatarX = isMe ? width-80 : 40;
-        const avatarY = y+20;
-
-        // Avatar circle
+        // Bubble putih (seperti iPhone)
+        ctx.fillStyle = "#202c33";
         ctx.beginPath();
-        ctx.fillStyle = '#6c757d';
-        ctx.arc(avatarX, avatarY, 28, 0, Math.PI*2);
+        ctx.moveTo(bubbleX + 20, bubbleY);
+        ctx.lineTo(bubbleX + bubbleWidth - 20, bubbleY);
+        ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY, bubbleX + bubbleWidth, bubbleY + 20);
+        ctx.lineTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight - 20);
+        ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight, bubbleX + bubbleWidth - 20, bubbleY + bubbleHeight);
+        ctx.lineTo(bubbleX + 20, bubbleY + bubbleHeight);
+        ctx.quadraticCurveTo(bubbleX, bubbleY + bubbleHeight, bubbleX, bubbleY + bubbleHeight - 20);
+        ctx.lineTo(bubbleX, bubbleY + 20);
+        ctx.quadraticCurveTo(bubbleX, bubbleY, bubbleX + 20, bubbleY);
         ctx.fill();
+
+        // Avatar
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(90, 150, 40, 0, Math.PI * 2);
         ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(avatar, 50, 110, 80, 80);
+        ctx.restore();
 
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 16px Arial';
-        const initials = (m.name||'U').split(' ').map(s=>s[0]).slice(0,2).join('').toUpperCase();
-        ctx.fillText(initials, avatarX-10, avatarY+6);
+        // Nama user
+        ctx.font = "bold 28px Arial";
+        ctx.fillStyle = "#f8cb6f";
+        ctx.fillText(username, 160, 120);
 
-        // Bubble
-        const bubbleX = isMe ? width-(bubbleMaxWidth+120) : 90;
-        const lines = wrapText(ctx, m.text, bubbleMaxWidth-32);
-        const bubbleHeight = lines.length*lineHeight + 18;
-        ctx.fillStyle = isMe ? '#DCF8C6' : '#FFFFFF';
-        ctx.beginPath();
-        ctx.roundRect(bubbleX,y,bubbleMaxWidth,bubbleHeight,12);
-        ctx.fill();
+        // Pesan teks
+        ctx.font = "24px Arial";
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(text, 160, 160);
 
-        // Text
-        ctx.fillStyle = '#000';
-        ctx.font = '16px Arial';
-        let textY = y+20;
-        for(const line of lines){
-            ctx.fillText(line, bubbleX+16, textY);
-            textY+=lineHeight;
-        }
+        // Timestamp
+        const now = new Date();
+        const jam = now.getHours().toString().padStart(2, "0");
+        const menit = now.getMinutes().toString().padStart(2, "0");
+        ctx.font = "18px Arial";
+        ctx.fillStyle = "#a5a5a5";
+        ctx.fillText(`${jam}.${menit}`, 700, 200);
 
-        // Meta
-        ctx.fillStyle = '#555';
-        ctx.font = '12px Arial';
-        const metaText = `${m.name || (isMe?'You':'User')} • ${m.time || ''}`;
-        ctx.fillText(metaText, bubbleX+16, y+bubbleHeight+16);
-
-        y += bubbleHeight + 40;
+        // Simpan & kirim
+        const outPath = path.join(__dirname, "qc_result.png");
+        const buffer = canvas.toBuffer("image/png");
+        fs.writeFileSync(outPath, buffer);
+        const media = MessageMedia.fromFilePath(outPath);
+        await client.sendMessage(message.from, media, { sendMediaAsSticker: true });
+    } catch (err) {
+        console.error(err);
+        message.reply("❌ Gagal membuat QC bubble chat.");
     }
-
-    return canvas.toBuffer('image/png');
-}
-
-// Wrapper untuk .qc (single message)
-async function handleQC(message, client) {
-    const text = message.body.slice(3).trim(); // ambil text setelah ".qc"
-    if(!text) return message.reply('Gunakan: .qc <pesan>');
-    
-    try {
-        const contact = await message.getContact();
-        const messages = [{
-            fromMe: false,
-            name: contact.pushname || contact.number,
-            text: text,
-            time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
-        }];
-        
-        const buffer = await generateChatImage(messages, 'Chat Preview');
-        const { MessageMedia } = require('whatsapp-web.js');
-        const media = new MessageMedia('image/png', buffer.toString('base64'));
-        await client.sendMessage(message.from, media);
-    } catch(err) {
-        console.error('Error QC:', err);
-        message.reply('Gagal membuat gambar chat');
-    }
-}
-
-// Wrapper untuk .iqc (multi message)
-async function handleIQC(message, client) {
-    const text = message.body.slice(4).trim(); // ambil text setelah ".iqc"
-    if(!text) return message.reply('Gunakan: .iqc <pesan1>|<pesan2>|...');
-    
-    try {
-        const contact = await message.getContact();
-        const lines = text.split('|').map(t => t.trim()).filter(t => t);
-        if(lines.length === 0) return message.reply('Harap pisahkan pesan dengan |');
-        
-        const messages = lines.map((line, idx) => ({
-            fromMe: idx % 2 === 1,
-            name: idx % 2 === 0 ? (contact.pushname || contact.number) : 'You',
-            text: line,
-            time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
-        }));
-        
-        const buffer = await generateChatImage(messages, 'Chat Preview');
-        const { MessageMedia } = require('whatsapp-web.js');
-        const media = new MessageMedia('image/png', buffer.toString('base64'));
-        await client.sendMessage(message.from, media);
-    } catch(err) {
-        console.error('Error IQC:', err);
-        message.reply('Gagal membuat gambar chat');
-    }
-}
-
-module.exports = { generateChatImage, wrapText, handleQC, handleIQC };
+};

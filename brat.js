@@ -23,42 +23,32 @@ async function generateBratSticker(text) {
 
   // teks hitam
   ctx.fillStyle = '#000000';
-  // pilih font; kalau registerFont dipakai, ganti family di sini
-  ctx.font = '700 48px Arial';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  // font besar dan tebal seperti contoh
+  ctx.font = 'bold 80px Arial';
+  ctx.textAlign = 'left'; // rata kiri seperti contoh
+  ctx.textBaseline = 'top';
 
-  // simple wrap: split lines by \n. Jika baris panjang, kita memecah secara manual.
+  // split by newline, atau jika user pakai spasi, split by space juga
   const rawLines = text.split('\n');
-
-  // function simple to split long lines into smaller pieces using char length heuristic
-  function splitLongLine(line, maxChars = 12) {
-    if (line.length <= maxChars) return [line];
-    const words = line.split(' ');
-    const lines = [];
-    let cur = '';
-    for (const w of words) {
-      if ((cur + ' ' + w).trim().length <= maxChars) {
-        cur = (cur + ' ' + w).trim();
-      } else {
-        if (cur) lines.push(cur);
-        cur = w;
-      }
-    }
-    if (cur) lines.push(cur);
-    // if still too long (no spaces), break by chars
-    return lines.flatMap(l => l.length <= maxChars ? [l] : l.match(new RegExp('.{1,'+maxChars+'}', 'g')));
+  const lines = [];
+  
+  for (const line of rawLines) {
+    // jika baris kosong, skip
+    if (line.trim() === '') continue;
+    // split by spaces untuk multi-word
+    const words = line.trim().split(/\s+/);
+    lines.push(...words);
   }
 
-  const lines = rawLines.flatMap(line => splitLongLine(line, 12));
-
-  // Calculate vertical start so text center vertically
-  const lineHeight = 60; // jarak antar line
+  // Calculate vertical start
+  const lineHeight = 90; // jarak antar line
   const totalHeight = lines.length * lineHeight;
-  let y = (size - totalHeight) / 2 + lineHeight / 2;
+  const startY = (size - totalHeight) / 2;
+  const startX = 30; // padding dari kiri
 
+  let y = startY;
   for (const line of lines) {
-    ctx.fillText(line, size / 2, y);
+    ctx.fillText(line.toLowerCase(), startX, y); // lowercase seperti contoh
     y += lineHeight;
   }
 

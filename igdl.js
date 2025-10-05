@@ -1,6 +1,56 @@
 const { MessageMedia } = require('whatsapp-web.js');
 const fetch = require('node-fetch');
 
+async function downloadFromAPI1(url) {
+    const apiUrl = 'https://api.saveig.app/api/v1/media-info';
+    const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        body: JSON.stringify({ url })
+    });
+    
+    if (!response.ok) throw new Error('API1 failed');
+    const data = await response.json();
+    if (!data.data || !data.data.media) throw new Error('No media found');
+    return data.data.media;
+}
+
+async function downloadFromAPI2(url) {
+    const apiUrl = `https://api.downloadgram.org/media?url=${encodeURIComponent(url)}`;
+    const response = await fetch(apiUrl, {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+    });
+    
+    if (!response.ok) throw new Error('API2 failed');
+    const data = await response.json();
+    if (!data.media || data.media.length === 0) throw new Error('No media found');
+    return data.media;
+}
+
+async function downloadFromAPI3(url) {
+    const shortcode = url.match(/\/(p|reel)\/([^\/\?]+)/)?.[2];
+    if (!shortcode) throw new Error('Invalid URL format');
+    
+    const apiUrl = `https://igram.io/api/ig/post/${shortcode}`;
+    const response = await fetch(apiUrl, {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json'
+        }
+    });
+    
+    if (!response.ok) throw new Error('API3 failed');
+    const data = await response.json();
+    if (!data.result || !data.result.download) throw new Error('No media found');
+    
+    return Array.isArray(data.result.download) ? data.result.download : [data.result.download];
+}
+
 async function handleInstagramDownload(message, client) {
     const text = message.body.slice(5).trim();
     
@@ -17,57 +67,42 @@ async function handleInstagramDownload(message, client) {
     try {
         await message.reply('⏳ Mengunduh dari Instagram...');
         
-        const apiUrl = 'https://v3.saveig.app/api/ajaxSearch';
+        let mediaUrls = null;
+        let apiUsed = null;
         
-        const formData = new URLSearchParams();
-        formData.append('q', url);
-        formData.append('t', 'media');
-        formData.append('lang', 'en');
+        const apis = [
+            { name: 'API1', func: downloadFromAPI1 },
+            { name: 'API2', func: downloadFromAPI2 },
+            { name: 'API3', func: downloadFromAPI3 }
+        ];
         
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Accept': '*/*',
-                'Origin': 'https://saveig.app',
-                'Referer': 'https://saveig.app/en'
-            },
-            body: formData
-        });
-        
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (!data.data || data.status !== 'ok') {
-            throw new Error('Video/foto tidak ditemukan');
-        }
-        
-        const html = data.data;
-        
-        const urlMatches = html.match(/href="([^"]+)"[^>]*download/gi);
-        
-        if (!urlMatches || urlMatches.length === 0) {
-            throw new Error('Tidak dapat menemukan URL download');
-        }
-        
-        const downloadUrls = [];
-        for (const match of urlMatches) {
-            const urlMatch = match.match(/href="([^"]+)"/);
-            if (urlMatch && urlMatch[1]) {
-                downloadUrls.push(urlMatch[1]);
+        for (const api of apis) {
+            try {
+                console.log(`Trying ${api.name}...`);
+                mediaUrls = await api.func(url);
+                apiUsed = api.name;
+                console.log(`${api.name} succeeded!`);
+                break;
+            } catch (err) {
+                console.log(`${api.name} failed:`, err.message);
+                continue;
             }
         }
         
-        if (downloadUrls.length === 0) {
-            throw new Error('Tidak dapat menemukan URL download');
+        if (!mediaUrls || mediaUrls.length === 0) {
+            throw new Error('Semua API gagal');
         }
         
-        for (let i = 0; i < Math.min(downloadUrls.length, 5); i++) {
-            const downloadUrl = downloadUrls[i];
+        const urlsToDownload = Array.isArray(mediaUrls) ? mediaUrls : [mediaUrls];
+        
+        for (let i = 0; i < Math.min(urlsToDownload.length, 5); i++) {
+            const mediaItem = urlsToDownload[i];
+            const downloadUrl = typeof mediaItem === 'string' ? mediaItem : (mediaItem.url || mediaItem.download_url || mediaItem.video_url || mediaItem.image_url);
+            
+            if (!downloadUrl) {
+                console.error('No download URL found in media item:', mediaItem);
+                continue;
+            }
             
             try {
                 const mediaResponse = await fetch(downloadUrl, {
@@ -100,11 +135,11 @@ async function handleInstagramDownload(message, client) {
                 );
                 
                 const caption = i === 0 ? '✅ *Instagram Download*\n\n' + 
-                               (downloadUrls.length > 1 ? `📦 Total: ${Math.min(downloadUrls.length, 5)} file` : '') : '';
+                               (urlsToDownload.length > 1 ? `📦 Total: ${Math.min(urlsToDownload.length, 5)} file` : '') : '';
                 
                 await client.sendMessage(message.from, media, caption ? { caption } : {});
                 
-                if (downloadUrls.length > 1 && i < Math.min(downloadUrls.length, 5) - 1) {
+                if (urlsToDownload.length > 1 && i < Math.min(urlsToDownload.length, 5) - 1) {
                     await new Promise(resolve => setTimeout(resolve, 2000));
                 }
             } catch (err) {
@@ -120,7 +155,7 @@ async function handleInstagramDownload(message, client) {
             'Kemungkinan penyebab:\n' +
             '• Post bersifat private\n' +
             '• Link tidak valid\n' +
-            '• API sedang down\n\n' +
+            '• Semua API sedang down\n\n' +
             '💡 *Alternatif:* Gunakan situs web:\n' +
             '• https://snapinsta.app\n' +
             '• https://igram.io\n' +

@@ -3,6 +3,14 @@ node_modules/
 
 # Environment file (API key)
 bot.env
+.env
+
+# WhatsApp Web Auth/Cache
+.wwebjs_auth/
+.wwebjs_cache/
+
+# Media files
+media/
 
 # Logs
 *.log

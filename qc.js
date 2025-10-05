@@ -13,11 +13,11 @@ module.exports.handleQC = async (message, client) => {
         const pfp = await contact.getProfilePicUrl();
 
         const username = contact.pushname || contact.number || "Anonim";
-        const canvas = createCanvas(800, 300);
+        const canvas = createCanvas(800, 350);
         const ctx = canvas.getContext("2d");
 
-        // Latar belakang dark mode
-        ctx.fillStyle = "#0b141a";
+        // Latar belakang dark mode (lebih gelap seperti WhatsApp)
+        ctx.fillStyle = "#0d1418";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // Avatar
@@ -41,50 +41,50 @@ module.exports.handleQC = async (message, client) => {
         }
 
         const bubbleX = 150;
-        const bubbleY = 90;
-        const bubbleWidth = 580;
-        const bubbleHeight = 120;
+        const bubbleY = 110;
+        const bubbleWidth = 600;
+        const bubbleHeight = 140;
 
-        // Bubble putih (seperti iPhone)
-        ctx.fillStyle = "#202c33";
+        // Bubble putih modern (seperti iPhone / WhatsApp)
+        ctx.fillStyle = "#ffffff";
         ctx.beginPath();
-        ctx.moveTo(bubbleX + 20, bubbleY);
-        ctx.lineTo(bubbleX + bubbleWidth - 20, bubbleY);
-        ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY, bubbleX + bubbleWidth, bubbleY + 20);
-        ctx.lineTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight - 20);
-        ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight, bubbleX + bubbleWidth - 20, bubbleY + bubbleHeight);
-        ctx.lineTo(bubbleX + 20, bubbleY + bubbleHeight);
-        ctx.quadraticCurveTo(bubbleX, bubbleY + bubbleHeight, bubbleX, bubbleY + bubbleHeight - 20);
-        ctx.lineTo(bubbleX, bubbleY + 20);
-        ctx.quadraticCurveTo(bubbleX, bubbleY, bubbleX + 20, bubbleY);
+        ctx.moveTo(bubbleX + 25, bubbleY);
+        ctx.lineTo(bubbleX + bubbleWidth - 25, bubbleY);
+        ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY, bubbleX + bubbleWidth, bubbleY + 25);
+        ctx.lineTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight - 25);
+        ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight, bubbleX + bubbleWidth - 25, bubbleY + bubbleHeight);
+        ctx.lineTo(bubbleX + 25, bubbleY + bubbleHeight);
+        ctx.quadraticCurveTo(bubbleX, bubbleY + bubbleHeight, bubbleX, bubbleY + bubbleHeight - 25);
+        ctx.lineTo(bubbleX, bubbleY + 25);
+        ctx.quadraticCurveTo(bubbleX, bubbleY, bubbleX + 25, bubbleY);
         ctx.fill();
 
-        // Avatar
+        // Avatar (lebih besar dan bulat sempurna)
         ctx.save();
         ctx.beginPath();
-        ctx.arc(90, 150, 40, 0, Math.PI * 2);
+        ctx.arc(85, 180, 45, 0, Math.PI * 2);
         ctx.closePath();
         ctx.clip();
-        ctx.drawImage(avatar, 50, 110, 80, 80);
+        ctx.drawImage(avatar, 40, 135, 90, 90);
         ctx.restore();
 
-        // Nama user
-        ctx.font = "bold 28px Arial";
-        ctx.fillStyle = "#f8cb6f";
-        ctx.fillText(username, 160, 120);
+        // Nama user di dalam bubble (warna orange seperti gambar)
+        ctx.font = "bold 30px Arial";
+        ctx.fillStyle = "#ff8800";
+        ctx.fillText(username, 175, 150);
 
-        // Pesan teks
-        ctx.font = "24px Arial";
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText(text, 160, 160);
+        // Pesan teks di dalam bubble (hitam karena bubble putih)
+        ctx.font = "26px Arial";
+        ctx.fillStyle = "#000000";
+        ctx.fillText(text, 175, 195);
 
-        // Timestamp
+        // Timestamp di pojok kanan bawah bubble
         const now = new Date();
         const jam = now.getHours().toString().padStart(2, "0");
         const menit = now.getMinutes().toString().padStart(2, "0");
-        ctx.font = "18px Arial";
-        ctx.fillStyle = "#a5a5a5";
-        ctx.fillText(`${jam}.${menit}`, 700, 200);
+        ctx.font = "16px Arial";
+        ctx.fillStyle = "#999999";
+        ctx.fillText(`${jam}.${menit}`, 680, 235);
 
         // Simpan & kirim
         const outPath = path.join(__dirname, "qc_result.png");

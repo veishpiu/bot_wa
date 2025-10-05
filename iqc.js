@@ -18,78 +18,101 @@ module.exports.handleIQC = async (message, client) => {
         const pfpQuoted = await contactQuoted.getProfilePicUrl();
         const pfpSender = await contactSender.getProfilePicUrl();
 
-        const canvas = createCanvas(800, 400);
+        const canvas = createCanvas(800, 450);
         const ctx = canvas.getContext("2d");
 
-        // Latar belakang
-        ctx.fillStyle = "#0b141a";
+        // Latar belakang dark mode (seperti WhatsApp)
+        ctx.fillStyle = "#0d1418";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // ====== BUBBLE 1 (quoted)
-        const drawBubble = (x, y, w, h, color) => {
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.moveTo(x + 20, y);
-            ctx.lineTo(x + w - 20, y);
-            ctx.quadraticCurveTo(x + w, y, x + w, y + 20);
-            ctx.lineTo(x + w, y + h - 20);
-            ctx.quadraticCurveTo(x + w, y + h, x + w - 20, y + h);
-            ctx.lineTo(x + 20, y + h);
-            ctx.quadraticCurveTo(x, y + h, x, y + h - 20);
-            ctx.lineTo(x, y + 20);
-            ctx.quadraticCurveTo(x, y, x + 20, y);
-            ctx.fill();
-        };
+        // ====== QUOTED MESSAGE (atas) dengan bar hijau di kiri seperti WhatsApp
+        const quotedX = 60;
+        const quotedY = 60;
+        const quotedWidth = 680;
+        const quotedHeight = 100;
+        
+        // Bar hijau di kiri
+        ctx.fillStyle = "#25d366";
+        ctx.fillRect(quotedX, quotedY, 6, quotedHeight);
+        
+        // Background quoted message
+        ctx.fillStyle = "#1a2529";
+        ctx.fillRect(quotedX + 10, quotedY, quotedWidth, quotedHeight);
+        
+        // Nama yang di-quote (abu-abu terang)
+        ctx.font = "20px Arial";
+        ctx.fillStyle = "#8ba9b8";
+        ctx.fillText(contactQuoted.pushname || "Pengguna", quotedX + 25, quotedY + 30);
+        
+        // Teks quoted (putih agak transparan)
+        ctx.font = "18px Arial";
+        ctx.fillStyle = "#b8c6cd";
+        ctx.fillText(originalText, quotedX + 25, quotedY + 65);
 
-        // Avatar quoted
-        let avatarQuoted;
-        if (pfpQuoted) {
-            const buffer = await (await fetch(pfpQuoted)).arrayBuffer();
-            avatarQuoted = await loadImage(Buffer.from(buffer));
+        // ====== BUBBLE REPLY (bawah) - Putih seperti gambar
+        const bubbleX = 150;
+        const bubbleY = 200;
+        const bubbleWidth = 600;
+        const bubbleHeight = 140;
+
+        // Bubble putih modern
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.moveTo(bubbleX + 25, bubbleY);
+        ctx.lineTo(bubbleX + bubbleWidth - 25, bubbleY);
+        ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY, bubbleX + bubbleWidth, bubbleY + 25);
+        ctx.lineTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight - 25);
+        ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight, bubbleX + bubbleWidth - 25, bubbleY + bubbleHeight);
+        ctx.lineTo(bubbleX + 25, bubbleY + bubbleHeight);
+        ctx.quadraticCurveTo(bubbleX, bubbleY + bubbleHeight, bubbleX, bubbleY + bubbleHeight - 25);
+        ctx.lineTo(bubbleX, bubbleY + 25);
+        ctx.quadraticCurveTo(bubbleX, bubbleY, bubbleX + 25, bubbleY);
+        ctx.fill();
+        
+        // Avatar sender
+        let avatarSender;
+        if (pfpSender) {
+            const buffer = await (await fetch(pfpSender)).arrayBuffer();
+            avatarSender = await loadImage(Buffer.from(buffer));
         } else {
-            // Create default avatar
-            const defaultCanvas = createCanvas(70, 70);
+            const defaultCanvas = createCanvas(90, 90);
             const defaultCtx = defaultCanvas.getContext("2d");
             defaultCtx.fillStyle = "#666666";
-            defaultCtx.fillRect(0, 0, 70, 70);
+            defaultCtx.fillRect(0, 0, 90, 90);
             defaultCtx.fillStyle = "#ffffff";
-            defaultCtx.font = "bold 35px Arial";
+            defaultCtx.font = "bold 40px Arial";
             defaultCtx.textAlign = "center";
             defaultCtx.textBaseline = "middle";
-            defaultCtx.fillText((contactQuoted.pushname || "A").charAt(0).toUpperCase(), 35, 35);
-            avatarQuoted = await loadImage(defaultCanvas.toBuffer("image/png"));
+            defaultCtx.fillText((contactSender.pushname || "A").charAt(0).toUpperCase(), 45, 45);
+            avatarSender = await loadImage(defaultCanvas.toBuffer("image/png"));
         }
         
+        // Avatar bulat
         ctx.save();
         ctx.beginPath();
-        ctx.arc(90, 120, 35, 0, Math.PI * 2);
+        ctx.arc(85, 270, 45, 0, Math.PI * 2);
+        ctx.closePath();
         ctx.clip();
-        ctx.drawImage(avatarQuoted, 55, 85, 70, 70);
+        ctx.drawImage(avatarSender, 40, 225, 90, 90);
         ctx.restore();
+        
+        // Nama pengirim (orange seperti gambar)
+        ctx.font = "bold 30px Arial";
+        ctx.fillStyle = "#ff8800";
+        ctx.fillText(contactSender.pushname || "Kamu", 175, 240);
+        
+        // Teks reply (hitam karena bubble putih)
+        ctx.font = "26px Arial";
+        ctx.fillStyle = "#000000";
+        ctx.fillText(replyText, 175, 285);
 
-        drawBubble(150, 80, 580, 80, "#202c33");
-        ctx.font = "bold 24px Arial";
-        ctx.fillStyle = "#f8cb6f";
-        ctx.fillText(contactQuoted.pushname || "Pengguna", 160, 105);
-        ctx.font = "22px Arial";
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText(originalText, 160, 140);
-
-        // ====== BUBBLE 2 (balasan)
-        drawBubble(150, 200, 580, 100, "#1c2c35");
-        ctx.font = "bold 24px Arial";
-        ctx.fillStyle = "#1ed760";
-        ctx.fillText(contactSender.pushname || "Kamu", 160, 230);
-        ctx.font = "22px Arial";
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText(replyText, 160, 265);
-
+        // Timestamp di pojok kanan bawah
         const now = new Date();
         const jam = now.getHours().toString().padStart(2, "0");
         const menit = now.getMinutes().toString().padStart(2, "0");
-        ctx.font = "18px Arial";
-        ctx.fillStyle = "#a5a5a5";
-        ctx.fillText(`${jam}.${menit}`, 700, 320);
+        ctx.font = "16px Arial";
+        ctx.fillStyle = "#999999";
+        ctx.fillText(`AI ✧ ${jam}.${menit}`, 650, 325);
 
         // Simpan & kirim
         const outPath = path.join(__dirname, "iqc_result.png");

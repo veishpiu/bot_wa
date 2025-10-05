@@ -1,6 +1,35 @@
 const { MessageMedia } = require('whatsapp-web.js');
 const fetch = require('node-fetch');
 
+async function downloadFromSiputzx(url) {
+    const apiUrl = 'https://dl.siputzx.my.id/';
+    
+    const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+            'accept': 'application/json',
+            'content-type': 'application/json',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        body: JSON.stringify({
+            url: url,
+            videoQuality: '720',
+            audioFormat: 'mp3'
+        })
+    });
+    
+    if (!response.ok) throw new Error('Siputzx API failed');
+    const data = await response.json();
+    
+    if (data.status === 'error') {
+        throw new Error(data.error?.code || 'API error');
+    }
+    
+    if (!data.result || !data.result.url) throw new Error('No media URL found');
+    
+    return [data.result.url];
+}
+
 async function downloadFromTikWMStyle(url) {
     const apiUrl = `https://www.tikwm.com/api/hybrid/instagram?url=${encodeURIComponent(url)}&hd=1`;
     
@@ -104,6 +133,7 @@ async function handleInstagramDownload(message, client) {
         let apiUsed = null;
         
         const apis = [
+            { name: 'Siputzx', func: downloadFromSiputzx },
             { name: 'TikWM', func: downloadFromTikWMStyle },
             { name: 'SnapInsta', func: downloadFromSnapInsta },
             { name: 'InstaIO', func: downloadFromInstaIO }

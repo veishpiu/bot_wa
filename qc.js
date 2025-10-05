@@ -2,6 +2,7 @@ const { MessageMedia } = require("whatsapp-web.js");
 const { createCanvas, loadImage } = require("canvas");
 const path = require("path");
 const fs = require("fs");
+const fetch = require("node-fetch");
 
 module.exports.handleQC = async (message, client) => {
     try {
@@ -26,7 +27,17 @@ module.exports.handleQC = async (message, client) => {
             const img = await loadImage(Buffer.from(buffer));
             avatar = img;
         } else {
-            avatar = await loadImage(path.join(__dirname, "default_pfp.png"));
+            // Create default avatar if none exists
+            const defaultCanvas = createCanvas(80, 80);
+            const defaultCtx = defaultCanvas.getContext("2d");
+            defaultCtx.fillStyle = "#666666";
+            defaultCtx.fillRect(0, 0, 80, 80);
+            defaultCtx.fillStyle = "#ffffff";
+            defaultCtx.font = "bold 40px Arial";
+            defaultCtx.textAlign = "center";
+            defaultCtx.textBaseline = "middle";
+            defaultCtx.fillText(username.charAt(0).toUpperCase(), 40, 40);
+            avatar = await loadImage(defaultCanvas.toBuffer("image/png"));
         }
 
         const bubbleX = 150;

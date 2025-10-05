@@ -95,4 +95,18 @@ async function imageToSticker(imageBuffer) {
   return new MessageMedia('image/png', buffer.toString('base64'));
 }
 
-module.exports = { generateBratSticker, imageToSticker };
+async function createBratSticker(message, client) {
+    try {
+        const text = message.body.replace(/^\.brat\s*/i, '').trim();
+        if (!text) return message.reply('⚠️ Gunakan format: *.brat <teks>*\n\nContoh: .brat Hello World');
+
+        await message.reply('⏳ Membuat stiker teks...');
+        const media = await generateBratSticker(text);
+        await client.sendMessage(message.from, media, { sendMediaAsSticker: true });
+    } catch (err) {
+        console.error(err);
+        message.reply('❌ Gagal membuat stiker teks.');
+    }
+}
+
+module.exports = { generateBratSticker, imageToSticker, createBratSticker };

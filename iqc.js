@@ -2,6 +2,7 @@ const { MessageMedia } = require("whatsapp-web.js");
 const { createCanvas, loadImage } = require("canvas");
 const path = require("path");
 const fs = require("fs");
+const fetch = require("node-fetch");
 
 module.exports.handleIQC = async (message, client) => {
     try {
@@ -41,16 +42,30 @@ module.exports.handleIQC = async (message, client) => {
         };
 
         // Avatar quoted
+        let avatarQuoted;
         if (pfpQuoted) {
             const buffer = await (await fetch(pfpQuoted)).arrayBuffer();
-            const img = await loadImage(Buffer.from(buffer));
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(90, 120, 35, 0, Math.PI * 2);
-            ctx.clip();
-            ctx.drawImage(img, 55, 85, 70, 70);
-            ctx.restore();
+            avatarQuoted = await loadImage(Buffer.from(buffer));
+        } else {
+            // Create default avatar
+            const defaultCanvas = createCanvas(70, 70);
+            const defaultCtx = defaultCanvas.getContext("2d");
+            defaultCtx.fillStyle = "#666666";
+            defaultCtx.fillRect(0, 0, 70, 70);
+            defaultCtx.fillStyle = "#ffffff";
+            defaultCtx.font = "bold 35px Arial";
+            defaultCtx.textAlign = "center";
+            defaultCtx.textBaseline = "middle";
+            defaultCtx.fillText((contactQuoted.pushname || "A").charAt(0).toUpperCase(), 35, 35);
+            avatarQuoted = await loadImage(defaultCanvas.toBuffer("image/png"));
         }
+        
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(90, 120, 35, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(avatarQuoted, 55, 85, 70, 70);
+        ctx.restore();
 
         drawBubble(150, 80, 580, 80, "#202c33");
         ctx.font = "bold 24px Arial";
